@@ -1,0 +1,12 @@
+#!/command/with-contenv bash
+
+### Configuration for Scheduling Logs
+
+# Type of log output for scheduling tasks
+SCHEDULING_LOG_TYPE=${SCHEDULING_LOG_TYPE:-"FILE"}
+
+# Location where scheduling logs are stored
+SCHEDULING_LOG_LOCATION=${SCHEDULING_LOG_LOCATION:-"/var/log/cron/"}
+
+# Log level for scheduling (e.g., verbosity of logging)
+SCHEDULING_LOG_LEVEL=${SCHEDULING_LOG_LEVEL:-"8"}
