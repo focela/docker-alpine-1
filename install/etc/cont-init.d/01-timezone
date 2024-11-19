@@ -1,0 +1,23 @@
+#!/command/with-contenv bash
+
+# Load container utility functions
+source /assets/functions/00-container
+
+# Disable output for cleaner logs during setup
+output_off
+
+# Set the process name for better logging visibility
+PROCESS_NAME="timezone"
+
+### Timezone setup
+# Check if the TIMEZONE variable is set
+if [ -n "${TIMEZONE}" ]; then
+    # Set the timezone based on the provided TIMEZONE value
+    set_timezone "${TIMEZONE}"
+fi
+
+# Mark the script as successfully initialized
+liftoff
+
+# Re-enable output
+output_on
