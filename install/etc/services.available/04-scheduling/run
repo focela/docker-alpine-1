@@ -1,0 +1,61 @@
+#!/command/with-contenv bash
+
+# Load container functions and set process name
+source /assets/functions/00-container
+PROCESS_NAME="scheduling"
+output_off
+
+# Prepare service environment and validate container state
+prepare_service
+check_container_initialized
+check_service_initialized init
+
+# Enable and configure log rotation if applicable
+if var_true "${CONTAINER_ENABLE_LOGROTATE}" ; then
+    print_debug "[logrotate] Configuring Logrotate for retention"
+    mkdir -p /etc/logrotate.d
+    cp -R /assets/logrotate/* /etc/logrotate.d
+    sed -i "s|rotate .*|rotate ${LOGROTATE_RETAIN_DAYS}|g" /etc/logrotate.d/*
+    sed -i "s|//|/|g" /etc/logrotate.d/*
+    chown -R root:root /etc/logrotate.d
+    chmod -R 0644 /etc/logrotate.d
+fi
+
+liftoff
+
+# Handle scheduling backend configuration
+case "${CONTAINER_SCHEDULING_BACKEND,,}" in
+    "cron" )
+        # Configure logging for cron jobs
+        if [ "${SCHEDULING_LOG_TYPE,,}" = "file" ]; then
+            cron_log_file="-L ${SCHEDULING_LOG_LOCATION}/cron.log"
+        fi
+
+        # Parse and configure cron jobs
+        print_debug "Parsing all cron files from ${CONTAINER_SCHEDULING_LOCATION}"
+        temp_crontab=$(mktemp)
+        echo 'MAILTO=""' > "$temp_crontab"
+
+        # Check if the scheduling directory is empty
+        if dir_empty "${CONTAINER_SCHEDULING_LOCATION}" ; then
+            echo "# Intentionally empty" > "${CONTAINER_SCHEDULING_LOCATION}"/empty
+        fi
+
+        # Add cron jobs from the configuration files
+        sed "/#/d" "${CONTAINER_SCHEDULING_LOCATION}"/* | awk 'NF' >> "$temp_crontab"
+
+        # Clear the existing crontab and apply the new one
+        silent crontab -r
+        crontab "$temp_crontab"
+
+        # Start cron service
+        print_start "Starting cron"
+        os=$(grep ^ID= /etc/os-release | cut -d = -f2)
+        case ${os} in
+            "alpine" | "debian" | "ubuntu" )
+                output_on
+                exec /usr/sbin/crond -f -l ${SCHEDULING_LOG_LEVEL} ${cron_log_file}
+            ;;
+        esac
+    ;;
+esac
