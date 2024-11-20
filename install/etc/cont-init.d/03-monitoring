@@ -144,7 +144,7 @@ EOF
 
             # Generate additional configuration for the agent
             mkdir -p "${ZABBIX_CONFIG_PATH}"/"${ZABBIX_CONFIG_FILE}".d
-            cat <<EOF > "${ZABBIX_CONFIG_PATH}"/"${ZABBIX_CONFIG_FILE}".d/tiredofit-container_agent.conf
+            cat <<EOF > "${ZABBIX_CONFIG_PATH}"/"${ZABBIX_CONFIG_FILE}".d/focela-container_agent.conf
 # Zabbix Container Agent Configuration
 UserParameter=agent.os,grep "PRETTY_NAME" /etc/os-release | cut -d '"' -f2
 EOF

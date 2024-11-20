@@ -120,7 +120,7 @@ EOF
 
         ### Add Zabbix monitoring configuration if enabled
         if var_true "${CONTAINER_ENABLE_MONITORING}" && [ "${CONTAINER_MONITORING_BACKEND,,}" = "zabbix" ]; then
-            cat <<EOF > "${ZABBIX_CONFIG_PATH}/${ZABBIX_CONFIG_FILE}.d/tiredofit-fail2ban.conf"
+            cat <<EOF > "${ZABBIX_CONFIG_PATH}/${ZABBIX_CONFIG_FILE}.d/focela-fail2ban.conf"
 # Zabbix Fail2ban Configuration - Auto-generated
 UserParameter=fail2ban.status[*],fail2ban-client status '$1' | grep 'Currently banned:' | grep -E -o '[0-9]+'
 EOF

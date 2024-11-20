@@ -168,7 +168,7 @@ create_zabbix() {
         print_debug "Adding Zabbix Auto Register configuration for '$1'"
         if var_true "${CONTAINER_ENABLE_MONITORING}" && [ "${CONTAINER_MONITORING_BACKEND,,}" = "zabbix" ]; then
             source /assets/defaults/03-monitoring
-            cat <<EOF > "${ZABBIX_CONFIG_PATH}"/"${ZABBIX_CONFIG_FILE}.d"/tiredofit_"$1".conf
+            cat <<EOF > "${ZABBIX_CONFIG_PATH}"/"${ZABBIX_CONFIG_FILE}.d"/focela_"$1".conf
 # Zabbix $1 Configuration - Automatically Generated
 # Autoregister=$autoregister
 EOF
@@ -623,7 +623,7 @@ get_image_version() {
             elif [ -f /assets/.changelogs/docker-${IMAGE_NAME/\//_}.md ] ; then
             image_version=$(head -n1 /assets/.changelogs/docker-${IMAGE_NAME/\//_}.md | awk '{print $2}')
         else
-            if [ -f /assets/.changelogs/tiredofit_docker-${IMAGE_NAME/\//_}.md ] ; then
+            if [ -f /assets/.changelogs/focela_docker-${IMAGE_NAME/\//_}.md ] ; then
                 image_version=$(head -n1 /assets/.changelogs/docker-${IMAGE_NAME/\//_}.md | awk '{print $2}')
             else
                 strip_image_repo_url=$(echo ${IMAGE_REPO_URL%/} | sed "s#https://github.com/##g")
@@ -632,8 +632,8 @@ get_image_version() {
                 fi
             fi
 
-            if [ -f /assets/.changelogs/tiredofit_docker-${IMAGE_NAME/\//_}.md ] ; then
-                image_version=$(head -n1 /assets/.changelogs/tiredofit_docker-${IMAGE_NAME/\//_}.md | awk '{print $2}')
+            if [ -f /assets/.changelogs/focela_docker-${IMAGE_NAME/\//_}.md ] ; then
+                image_version=$(head -n1 /assets/.changelogs/focela_docker-${IMAGE_NAME/\//_}.md | awk '{print $2}')
             fi
         fi
 
