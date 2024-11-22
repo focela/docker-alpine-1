@@ -102,7 +102,99 @@ RUN case "$(cat /etc/os-release | grep VERSION_ID | cut -d = -f 2 | cut -d . -f 
     case "$(cat /etc/os-release | grep VERSION_ID | cut -d = -f 2 | cut -d . -f 1,2)" in \
         "3.5" | "3.8" ) zstd_package="" ;; \
         *) zstd_package=zstd ;; \
-    esac ;
+    esac ; \
+    # Enable debug mode and exit on errors
+    # -e: Exit the script immediately if a command exits with a non-zero status
+    # -x: Print each command before executing it (useful for debugging)
+    set -ex && \
+    # Update Alpine package index and upgrade installed packages
+    apk update && apk upgrade && \
+    # Add base runtime dependencies
+    apk add -t .base-rundeps \
+        acl \
+        ${alpine_ssl} \
+        bash \
+        bc \
+        ${busybox_extras} \
+        curl \
+        ${doas_package} \
+        fail2ban \
+        ${fts} \
+        git \
+        grep \
+        iptables \
+        iputils \
+        jq \
+        less \
+        libgcc \
+        $(apk search libssl1* -q) \
+        logrotate \
+        msmtp \
+        nano \
+        pcre \
+        s6 \
+        sudo \
+        tzdata \
+        yaml \
+        ${zstd_package} \
+        && \
+    \
+    # Add Go programming language and development dependencies
+    apk add -t .golang-build-deps \
+        go \
+        musl-dev \
+        && \
+    \
+    # Add Zabbix build dependencies
+    apk add -t .zabbix-build-deps \
+        alpine-sdk \
+        autoconf \
+        automake \
+        binutils \
+        coreutils \
+        g++ \
+        openssl-dev \
+        make \
+        pcre-dev \
+        zlib-dev \
+        ${additional_packages} \
+        ${upx} \
+        && \
+    \
+    # Add Fluent Bit build dependencies
+    apk add -t .fluentbit-build-deps \
+        bison \
+        cmake \
+        flex \
+        ${fts}-dev \
+        linux-headers \
+        openssl-dev \
+        snappy-dev \
+        yaml-dev \
+        && \
+    \
+    # Add gettext and move envsubst to a new path
+    apk add gettext && \
+    mv /usr/bin/envsubst /usr/local/bin/envsubst && \
+    \
+    # Set timezone configuration
+    cp -R /usr/share/zoneinfo/${TIMEZONE} /etc/localtime && \
+    echo "${TIMEZONE}" > /etc/timezone && \
+    \
+    # Configure sudo to reduce verbosity
+    echo "Set disable_coredump false" > /etc/sudo.conf && \
+    \
+    # Build and install Doas (if required)
+    if [ "$build_doas" = "true" ] ; then \
+        mkdir -p /usr/src/doas ; \
+        curl -sSL https://github.com/Duncaen/OpenDoas/archive/${DOAS_VERSION}.tar.gz | tar xfz - --strip 1 -C /usr/src/doas ; \
+        cd /usr/src/doas ; \
+        ./configure --prefix=/usr \
+                    --enable-static \
+                    --without-pam ; \
+        make ; \
+        make install ; \
+    fi ;
 
 # Use Bash as the default shell
 SHELL ["/bin/bash", "-c"]
