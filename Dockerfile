@@ -194,7 +194,39 @@ RUN case "$(cat /etc/os-release | grep VERSION_ID | cut -d = -f 2 | cut -d . -f 
                     --without-pam ; \
         make ; \
         make install ; \
-    fi ;
+    fi ; \
+    # Install Golang and configure environment
+    if [ "$zabbix_agent2" = "true" ] ; then \
+        # Create a directory for Golang source code
+        mkdir -p /usr/src/golang ; \
+        \
+        # Download and extract Golang source code to the specified directory
+        curl -sSL https://dl.google.com/go/go${GOLANG_VERSION}.src.tar.gz | tar xvfz - --strip 1 -C /usr/src/golang ; \
+        \
+        # Build Golang from source
+        cd /usr/src/golang/src/ ; \
+        ./make.bash 1>/dev/null ; \
+        \
+        # Set Golang environment variables for proper usage
+        export GOROOT=/usr/src/golang/ ; \
+        export PATH="/usr/src/golang/bin:$PATH" ; \
+    fi ; \
+    \
+    # Compile and install YQ
+    if [ "$yq" != "false" ] ; then \
+        # Clone the YQ repository
+        git clone https://github.com/mikefarah/yq /usr/src/yq ; \
+        \
+        # Check out the specified version of YQ
+        cd /usr/src/yq ; \
+        git checkout ${YQ_VERSION} ; \
+        \
+        # Build the YQ binary using Golang
+        go build ; \
+        \
+        # Copy the YQ binary to a directory in the system's PATH
+        cp -R yq /usr/local/bin ; \
+    fi;
 
 # Use Bash as the default shell
 SHELL ["/bin/bash", "-c"]
