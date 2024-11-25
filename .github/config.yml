@@ -1,0 +1,41 @@
+# Configuration for GitHub repository automation
+# This file supports actions like labelling, closing stale issues, and more.
+
+# Labeler Configuration
+labeler:
+  rules:
+    # Automatically assign labels based on file changes
+    "docker":
+      - "**/Dockerfile"
+    "bash-scripts":
+      - "install/**/*.sh"
+    "github-actions":
+      - ".github/workflows/**"
+    "documentation":
+      - "**/*.md"
+
+# Stale Issue and PR Management
+stale:
+  daysUntilStale: 30
+  daysUntilClose: 7
+  exemptLabels:
+    - "pinned"
+    - "ongoing"
+  staleLabel: "stale"
+  closeComment: >
+    This issue has been automatically closed due to inactivity. If you believe this
+    was closed in error, please reopen or comment with additional details.
+
+# Greetings for New Contributors
+greetings:
+  newContributor:
+    - "Welcome to the project! 🎉 Please check out our CONTRIBUTING.md for guidelines."
+  newIssue:
+    - "Thank you for raising this issue! We will review it shortly."
+  newPR:
+    - "Thanks for your contribution! A maintainer will review your PR soon."
+
+# Pull Request Automation
+pr:
+  autoMerge: true
+  branchProtection: true
