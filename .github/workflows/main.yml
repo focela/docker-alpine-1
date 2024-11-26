@@ -11,6 +11,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
     strategy:
       matrix:
         distro_variant:
@@ -110,7 +113,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ github.token }}
 
       - name: Build and Push Docker Image
         if: github.event_name != 'pull_request'
