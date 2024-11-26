@@ -391,12 +391,12 @@ RUN case "$(cat /etc/os-release | grep VERSION_ID | cut -d = -f 2 | cut -d . -f 
             mv /usr/etc/fluent-bit /etc/fluent-bit && \
             mkdir -p /etc/fluent-bit/parsers.d && \
             mkdir -p /etc/fluent-bit/conf.d && \
-            strip /usr/bin/fluent-bit && \
-            if [ "$apkArch" = "x86_64" ] && [ "$no_upx" != "true" ]; then \
-                upx /usr/bin/fluent-bit ; \
-            fi ; \
-        fi ; \
-    fi && \
+            strip /usr/bin/fluent-bit; \
+            if [ "$no_upx" != "true" ]; then \
+                upx /usr/bin/fluent-bit; \
+            fi; \
+        fi; \
+    fi ; \
     \
     # Configure Fail2ban
     addgroup -g 65500 fail2ban && \
@@ -467,4 +467,4 @@ EXPOSE 2020/TCP 10050/TCP
 ENTRYPOINT ["/init"]
 
 # Add application folders from the local build context
-COPY install/ /install/
+COPY install/ /
