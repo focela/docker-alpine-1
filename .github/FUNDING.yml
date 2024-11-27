@@ -1,0 +1,8 @@
+# File FUNDING.yml
+# This file is used to configure the Sponsor button on GitHub repositories.
+# It allows contributors or users to support the project financially.
+
+# Custom funding links (e.g., PayPal.me or any other external platforms)
+custom: ["https://www.paypal.me/focela"]
+# GitHub Sponsors service
+github: [focela]
