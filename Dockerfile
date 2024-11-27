@@ -9,7 +9,7 @@ LABEL maintainer="Focela Technologies (https://github.com/focela)" \
 
 # Define versions for dependencies
 # These ARGs allow specifying versions of dependencies at build time
-ARG GOLANG_VERSION=1.21.13
+ARG GOLANG_VERSION=1.21.10
 ARG DOAS_VERSION
 ARG FLUENTBIT_VERSION
 ARG S6_OVERLAY_VERSION
@@ -17,10 +17,10 @@ ARG YQ_VERSION
 ARG ZABBIX_VERSION
 
 # Environment variables for runtime configurations and versioning
-ENV FLUENTBIT_VERSION=${FLUENTBIT_VERSION:-"3.2.1"} \
-    S6_OVERLAY_VERSION=${S6_OVERLAY_VERSION:-"3.2.0.2"} \
-    YQ_VERSION=${YQ_VERSION:-"v4.44.2"} \
-    ZABBIX_VERSION=${ZABBIX_VERSION:-"7.0.5"} \
+ENV FLUENTBIT_VERSION=${FLUENTBIT_VERSION:-"3.0.6"} \
+    S6_OVERLAY_VERSION=${S6_OVERLAY_VERSION:-"3.1.6.2"} \
+    YQ_VERSION=${YQ_VERSION:-"v4.42.1"} \
+    ZABBIX_VERSION=${ZABBIX_VERSION:-"6.4.15"} \
     DOAS_VERSION=${DOAS_VERSION:-"v6.8.2"} \
     DEBUG_MODE=FALSE \
     TIMEZONE=Etc/GMT \
