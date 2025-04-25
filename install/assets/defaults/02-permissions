@@ -1,0 +1,5 @@
+#!/command/with-contenv bash
+
+# Configuration for debug mode in permissions module
+# Setting this to "TRUE" will enable verbose logging for permission-related operations
+DEBUG_PERMISSIONS=${DEBUG_PERMISSIONS:-"FALSE"}
