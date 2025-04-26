@@ -1,0 +1,11 @@
+#!/command/with-contenv bash
+#
+# Permissions configuration script
+# Controls debugging for permission-related operations in the container
+#
+
+#------------------------------------------------------------------------------
+# PERMISSIONS DEBUG SETTINGS
+#------------------------------------------------------------------------------
+# Enable verbose output for permission operations when set to "TRUE"
+DEBUG_PERMISSIONS=${DEBUG_PERMISSIONS:-"FALSE"}

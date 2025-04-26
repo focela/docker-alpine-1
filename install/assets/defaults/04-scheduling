@@ -1,0 +1,13 @@
+#!/command/with-contenv bash
+#
+# Scheduling configuration script
+# Controls logging settings for scheduled tasks in the container
+#
+
+#------------------------------------------------------------------------------
+# SCHEDULING LOGGING CONFIGURATION
+#------------------------------------------------------------------------------
+# Logging settings for scheduled tasks
+SCHEDULING_LOG_TYPE=${SCHEDULING_LOG_TYPE:-"FILE"}
+SCHEDULING_LOG_LOCATION=${SCHEDULING_LOG_LOCATION:-"/var/log/cron/"}
+SCHEDULING_LOG_LEVEL=${SCHEDULING_LOG_LEVEL:-"8"}

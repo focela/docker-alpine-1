@@ -1,0 +1,91 @@
+#!/command/with-contenv bash
+#
+# Monitoring configuration script
+# Sets up Zabbix monitoring agent defaults for container monitoring
+#
+
+#------------------------------------------------------------------------------
+# ZABBIX CORE SETTINGS
+#------------------------------------------------------------------------------
+# Basic agent configuration
+ZABBIX_HOSTNAME=${ZABBIX_HOSTNAME:-"${CONTAINER_NAME}"}
+ZABBIX_SETUP_TYPE=${ZABBIX_SETUP_TYPE:-"AUTO"}
+ZABBIX_USER=${ZABBIX_USER:-"zabbix"}
+ZABBIX_USER_DOAS=${ZABBIX_USER_DOAS:-"TRUE"}
+ZABBIX_USER_SUDO=${ZABBIX_USER_SUDO:-"TRUE"}
+
+#------------------------------------------------------------------------------
+# ZABBIX NETWORK SETTINGS
+#------------------------------------------------------------------------------
+# Network and connectivity configuration
+ZABBIX_LISTEN_IP=${ZABBIX_LISTEN_IP:-"0.0.0.0"}
+ZABBIX_LISTEN_PORT=${ZABBIX_LISTEN_PORT:-"10050"}
+ZABBIX_STATUS_PORT=${ZABBIX_STATUS_PORT:-"8050"}
+ZABBIX_SERVER=${ZABBIX_SERVER:-"0.0.0.0/0"}
+ZABBIX_SERVER_ACTIVE=${ZABBIX_SERVER_ACTIVE:-"zabbix-proxy"}
+
+#------------------------------------------------------------------------------
+# ZABBIX PATHS AND FILES
+#------------------------------------------------------------------------------
+# File locations and paths
+ZABBIX_CONFIG_PATH=${ZABBIX_CONFIG_PATH:-"/etc/zabbix/"}
+ZABBIX_CONFIG_FILE=${ZABBIX_CONFIG_FILE:-"zabbix_agentd.conf"}
+ZABBIX_CERT_PATH=${ZABBIX_CERT_PATH:-"/etc/zabbix/certs/"}
+ZABBIX_SOCKET=${ZABBIX_SOCKET:-"/var/lib/zabbix/run/zabbix-agent.sock"}
+ZABBIX_PID=${ZABBIX_PID:-"/var/lib/zabbix/run/zabbix-agent.pid"}
+
+#------------------------------------------------------------------------------
+# ZABBIX LOGGING CONFIGURATION
+#------------------------------------------------------------------------------
+# Logging settings
+ZABBIX_AGENT_LOG_PATH=${ZABBIX_AGENT_LOG_PATH:-"/var/log/zabbix/agent/"}
+ZABBIX_AGENT_LOG_FILE=${ZABBIX_AGENT_LOG_FILE:-"zabbix_agentd.log"}
+ZABBIX_LOG_FILE_SIZE=${ZABBIX_LOG_FILE_SIZE:-"0"}
+ZABBIX_DEBUGLEVEL=${ZABBIX_DEBUGLEVEL:-"1"}
+
+#------------------------------------------------------------------------------
+# ZABBIX PERFORMANCE SETTINGS
+#------------------------------------------------------------------------------
+# Performance tuning parameters
+ZABBIX_BUFFER_SEND=${ZABBIX_BUFFER_SEND:-"5"}
+ZABBIX_BUFFER_SIZE=${ZABBIX_BUFFER_SIZE:-"100"}
+ZABBIX_MAXLINES_SECOND=${ZABBIX_MAXLINES_SECOND:-"20"}
+ZABBIX_REFRESH_ACTIVE_CHECKS=${ZABBIX_REFRESH_ACTIVE_CHECKS:-"120"}
+ZABBIX_AGENT_TIMEOUT=${ZABBIX_AGENT_TIMEOUT:-"3"}
+ZABBIX_START_AGENTS=${ZABBIX_START_AGENTS:-"1"}
+
+#------------------------------------------------------------------------------
+# ZABBIX SECURITY SETTINGS
+#------------------------------------------------------------------------------
+# Security configuration
+ZABBIX_ALLOW_ROOT=${ZABBIX_ALLOW_ROOT:-"1"}
+ZABBIX_REMOTECOMMANDS_ALLOW=${ZABBIX_REMOTECOMMANDS_ALLOW:-"*"}
+ZABBIX_REMOTECOMMANDS_LOG=${ZABBIX_REMOTECOMMANDS_LOG:-"1"}
+
+#------------------------------------------------------------------------------
+# ZABBIX AUTO-REGISTRATION
+#------------------------------------------------------------------------------
+# Auto-registration configuration
+ZABBIX_ENABLE_AUTOREGISTER=${ZABBIX_ENABLE_AUTOREGISTER:-"TRUE"}
+ZABBIX_ENABLE_AUTOREGISTER_DNS=${ZABBIX_ENABLE_AUTOREGISTER_DNS:-"TRUE"}
+
+#------------------------------------------------------------------------------
+# ZABBIX AGENT TYPE DETECTION
+#------------------------------------------------------------------------------
+# Detect the appropriate agent type based on OS and version
+OS=$(grep ^ID= /etc/os-release | cut -d= -f2 | tr -d '"')
+
+case ${OS} in
+    "alpine")
+        OS_VERSION=$(grep VERSION_ID /etc/os-release | cut -d= -f2 | cut -d. -f2 | cut -d_ -f1 | tr -d '"')
+
+        if [ "${OS_VERSION}" -ge 15 ] || [ "${OS_VERSION}" = "edge" ]; then
+            ZABBIX_AGENT_TYPE=${ZABBIX_AGENT_TYPE:-"modern"}
+        else
+            ZABBIX_AGENT_TYPE=${ZABBIX_AGENT_TYPE:-"classic"}
+        fi
+        ;;
+    "debian" | "ubuntu")
+      ZABBIX_AGENT_TYPE=${ZABBIX_AGENT_TYPE:-"modern"}
+      ;;
+esac
