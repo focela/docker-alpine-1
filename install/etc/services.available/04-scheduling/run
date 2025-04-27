@@ -1,0 +1,91 @@
+#!/command/with-contenv bash
+#
+# Scheduling service script
+# Manages scheduled tasks and runs the cron daemon
+#
+
+#------------------------------------------------------------------------------------------
+# INITIAL SETUP
+#------------------------------------------------------------------------------------------
+# Import container functions and initialize service
+source /assets/functions/00-container
+PROCESS_NAME="scheduling"
+output_off
+prepare_service
+check_container_initialized
+check_service_initialized init
+
+#------------------------------------------------------------------------------------------
+# LOGROTATE CONFIGURATION
+#------------------------------------------------------------------------------------------
+# Set up logrotate if enabled
+if var_true "${CONTAINER_ENABLE_LOGROTATE}"; then
+    print_debug "[logrotate] Setting Logrotate retention days after all services have finished initializing"
+    mkdir -p /etc/logrotate.d
+
+    print_debug "[logrotate] Moving files from /assets/logrotate to /etc/logrotate.d"
+    cp -R /assets/logrotate/* /etc/logrotate.d
+
+    # Set retention days and fix potential path issues
+    sed -i "s|rotate .*|rotate ${LOGROTATE_RETAIN_DAYS}|g" /etc/logrotate.d/*
+    sed -i "s|//|/|g" /etc/logrotate.d/*
+
+    # Set proper permissions
+    chown -R root:root /etc/logrotate.d
+    chmod -R 0644 /etc/logrotate.d
+fi
+
+# Mark initialization complete
+liftoff
+
+#------------------------------------------------------------------------------------------
+# SCHEDULING SERVICE EXECUTION
+#------------------------------------------------------------------------------------------
+# Start the appropriate scheduling backend
+case "${CONTAINER_SCHEDULING_BACKEND}" in
+    "cron")
+        #------------------------------------------------------------------------------------------
+        # CRON LOGGING SETUP
+        #------------------------------------------------------------------------------------------
+        # Configure cron logging based on settings
+        cron_log_file=""
+        if [ "${SCHEDULING_LOG_TYPE,,}" = "file" ]; then
+            cron_log_file="-L ${SCHEDULING_LOG_LOCATION}/cron.log"
+        fi
+
+        #------------------------------------------------------------------------------------------
+        # CRONTAB GENERATION
+        #------------------------------------------------------------------------------------------
+        # Create crontab from scheduled tasks
+        print_debug "Parsing all files from ${CONTAINER_SCHEDULING_LOCATION}"
+        temp_crontab=$(date +%s)
+
+        # Set empty MAILTO to prevent mail notifications
+        echo 'MAILTO=""' > /tmp/.container/cron/${temp_crontab}
+
+        # Create a placeholder if directory is empty
+        if dir_empty "${CONTAINER_SCHEDULING_LOCATION}"; then
+            echo "# Intentionally empty" > "${CONTAINER_SCHEDULING_LOCATION}"/empty
+        fi
+
+        # Extract valid cron entries, removing comments and empty lines
+        sed "/#/d" "${CONTAINER_SCHEDULING_LOCATION}"/* | awk 'NF' >> /tmp/.container/cron/${temp_crontab}
+
+        # Install the new crontab
+        silent crontab -r
+        crontab /tmp/.container/cron/${temp_crontab}
+
+        #------------------------------------------------------------------------------------------
+        # CRON SERVICE STARTUP
+        #------------------------------------------------------------------------------------------
+        # Launch the cron daemon based on OS
+        print_start "Starting cron"
+        os=$(cat /etc/os-release | grep ^ID= | cut -d = -f2)
+        case ${os} in
+            "alpine" | "debian" | "ubuntu")
+                output_on
+                exec /usr/sbin/crond -f -l ${SCHEDULING_LOG_LEVEL} ${cron_log_file}
+            ;;
+        esac
+    ;;
+esac
