@@ -77,5 +77,4 @@ yarn-debug.log*
 yarn-error.log*
 
 # DOCKER / KUBERNETES
-.dockerignore
 .kube/
