@@ -1,0 +1,19 @@
+#!/command/with-contenv bash
+#
+# 02-permissions - Container Permissions Debug Configuration
+#
+# PURPOSE:  This script defines environment variables related to debugging
+#           permission-related operations within the container. Setting
+#           DEBUG_PERMISSIONS to "TRUE" enables verbose output during
+#           permission-related operations.
+#
+# AUTHOR:   Focela Labs | https://www.focela.com
+# LICENSE:  Copyright (c) Focela Labs - All Rights Reserved
+# SUPPORT:  opensource@focela.com
+#
+
+#--------------------------------------------------
+# DEBUG SETTINGS
+#--------------------------------------------------
+# Controls verbose output for permission operations
+DEBUG_PERMISSIONS=${DEBUG_PERMISSIONS:-"FALSE"}
