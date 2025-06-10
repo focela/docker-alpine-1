@@ -1,0 +1,34 @@
+#!/command/with-contenv bash
+#-----------------------------------------------------------------------------
+# Messaging Initialization Script
+#
+# Purpose: Configures SMTP email settings for container messaging capabilities
+# Context: Runs in s6-overlay environment as part of messaging setup sequence
+# Note: Prepares email configuration for application notifications and alerts
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# CONFIGURATION - SMTP SERVER SETTINGS
+#-----------------------------------------------------------------------------
+# SMTP server connection details
+SMTP_HOST=${SMTP_HOST:-"postfix-relay"}
+SMTP_PORT=${SMTP_PORT:-"25"}
+
+# Email domain configuration
+# Note: IMAGE_NAME variable is provided by the container environment
+SMTP_DOMAIN=${SMTP_DOMAIN:-"${IMAGE_NAME}"}
+SMTP_MAILDOMAIN=${SMTP_MAILDOMAIN:-"local"}
+
+#-----------------------------------------------------------------------------
+# CONFIGURATION - SMTP SECURITY OPTIONS
+#-----------------------------------------------------------------------------
+# TLS/SSL encryption settings for secure email transmission
+SMTP_TLS=${SMTP_TLS:-"FALSE"}
+SMTP_STARTTLS=${SMTP_STARTTLS:-"FALSE"}
+SMTP_TLSCERTCHECK=${SMTP_TLSCERTCHECK:-"FALSE"}
+
+#-----------------------------------------------------------------------------
+# CONFIGURATION - SMTP BEHAVIOR SETTINGS
+#-----------------------------------------------------------------------------
+# Email sending behavior configuration
+SMTP_AUTO_FROM=${SMTP_AUTO_FROM:-"FALSE"}
