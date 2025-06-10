@@ -1,0 +1,14 @@
+#!/command/with-contenv bash
+#-----------------------------------------------------------------------------
+# Permissions Initialization Script
+#
+# Purpose: Sets debug configuration for container permission management
+# Context: Runs in s6-overlay environment as part of initialization sequence
+# Note: This script prepares debug settings for permission-related operations
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# CONFIGURATION
+#-----------------------------------------------------------------------------
+# Debug settings for permission operations
+DEBUG_PERMISSIONS=${DEBUG_PERMISSIONS:-"FALSE"}
