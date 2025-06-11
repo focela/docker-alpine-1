@@ -1,0 +1,168 @@
+#!/command/with-contenv bash
+#-----------------------------------------------------------------------------
+# Messaging Configuration Script
+#
+# Purpose: Configures SMTP messaging capabilities using msmtp as the backend
+# Context: Runs in s6-overlay initialization sequence (06-messaging)
+# Note: Sets up msmtp as a sendmail replacement for container email functionality
+#       with support for various SMTP providers including Gmail-specific options
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# CONFIGURATION - FRAMEWORK SETUP
+#-----------------------------------------------------------------------------
+# Load the core container framework library for utility functions
+source /assets/functions/00-container
+
+# Configure logging context and disable debug output during execution
+output_off
+
+# Prepare service for single-instance messaging setup
+prepare_service single
+
+# Disable shellcheck warning for PROCESS_NAME variable (used by framework)
+# shellcheck disable=SC2034
+PROCESS_NAME="messaging"
+
+# Ensure output is disabled during configuration
+output_off
+
+#-----------------------------------------------------------------------------
+# CONFIGURATION - MESSAGING BACKEND SELECTION
+#-----------------------------------------------------------------------------
+# Determine messaging backend based on ENABLE_SMTP variable
+# Currently only msmtp is supported as a messaging backend
+if var_false "${ENABLE_SMTP}"; then
+  CONTAINER_ENABLE_MESSAGING=FALSE
+fi
+
+if var_true "${ENABLE_SMTP}"; then
+  CONTAINER_ENABLE_MESSAGING=TRUE
+  CONTAINER_MESSAGING_BACKEND=msmtp
+fi
+
+#-----------------------------------------------------------------------------
+# MAIN EXECUTION - MESSAGING SETUP
+#-----------------------------------------------------------------------------
+# Only proceed with messaging setup if explicitly enabled
+if var_true "${CONTAINER_ENABLE_MESSAGING}" ; then
+
+  #---------------------------------------------------------------------------
+  # BACKEND-SPECIFIC CONFIGURATION
+  #---------------------------------------------------------------------------
+  case "${CONTAINER_MESSAGING_BACKEND,,}" in
+    "msmtp" )
+
+      #-----------------------------------------------------------------------
+      # SENDMAIL REPLACEMENT SETUP
+      #-----------------------------------------------------------------------
+      # Replace sendmail with msmtp to handle SMTP relay functionality
+      # This allows applications expecting sendmail to work with SMTP
+      rm -f /usr/sbin/sendmail
+      ln -s /usr/bin/msmtp /usr/sbin/sendmail
+
+      #-----------------------------------------------------------------------
+      # BOOLEAN CONFIGURATION CONVERSION
+      #-----------------------------------------------------------------------
+      # Convert boolean environment variables to lowercase on/off format for msmtp
+      # msmtp expects lowercase 'on'/'off' values, not 'true'/'false'
+      truefalse_onoff SMTP_TLS lower
+      truefalse_onoff SMTP_STARTTLS lower
+      truefalse_onoff SMTP_TLSCERTCHECK lower
+
+      #-----------------------------------------------------------------------
+      # SENSITIVE CONFIGURATION TRANSFORMATION
+      #-----------------------------------------------------------------------
+      # Transform file-based variables (supports Docker secrets and file references)
+      # This allows sensitive data like passwords to be loaded from files
+      transform_file_var \
+                      SMTP_HOST \
+                      SMTP_PORT \
+                      SMTP_USER \
+                      SMTP_PASS
+
+      #-----------------------------------------------------------------------
+      # MSMTP CONFIGURATION FILE GENERATION
+      #-----------------------------------------------------------------------
+      # Generate msmtp configuration file with SMTP settings
+      # Configuration format follows msmtp standards for account-based setup
+      echo "### Automatically generated on container start. See documentation on how to set!" > /etc/msmtprc
+
+      # Build msmtp configuration with conditional parameters
+      {
+        # Basic account configuration - 'default' account used for all mail
+        echo "account default "
+
+        # Core SMTP server settings
+        echo "host ${SMTP_HOST}"
+        echo "port ${SMTP_PORT}"
+        echo "domain ${SMTP_DOMAIN}"
+
+        # Optional sender configuration - only set if provided
+        if [ -n "$SMTP_FROM" ]; then
+          echo "from ${SMTP_FROM}"
+        fi
+
+        # Mail domain configuration for message routing
+        echo "maildomain ${SMTP_MAILDOMAIN}"
+
+        # Authentication settings - only set if authentication is required
+        if [ -n "$SMTP_AUTHENTICATION" ]; then
+          echo "auth ${SMTP_AUTHENTICATION}"
+        fi
+
+        # Credentials - only set if provided (some SMTP servers don't require auth)
+        if [ -n "$SMTP_USER" ]; then
+          echo "user ${SMTP_USER}"
+        fi
+
+        if [ -n "$SMTP_PASS" ]; then
+          echo "password ${SMTP_PASS}"
+        fi
+
+        # TLS/SSL security settings
+        echo "tls ${SMTP_TLS}"
+        echo "tls_starttls ${SMTP_STARTTLS}"
+        echo "tls_certcheck ${SMTP_TLSCERTCHECK}"
+
+        # Optional header override capability
+        if [ -n "$SMTP_ALLOW_FROM_OVERRIDE" ]; then
+          echo "allow_from_override ${SMTP_ALLOW_FROM_OVERRIDE}"
+        fi
+
+        # Gmail-specific configuration
+        # Gmail requires 'auto_from' for proper sender address handling
+        if var_true "${ENABLE_SMTP_GMAIL}" || var_true "${SMTP_AUTO_FROM}"; then
+          echo "auto_from on"
+        fi
+
+      } >> /etc/msmtprc
+
+      print_notice "Container configured to route mail via SMTP to '${SMTP_HOST}'"
+    ;;
+
+    #-------------------------------------------------------------------------
+    # UNSUPPORTED MESSAGING BACKENDS
+    #-------------------------------------------------------------------------
+    *)
+      print_error "Unknown messaging backend"
+      exit 1
+    ;;
+  esac
+else
+  #---------------------------------------------------------------------------
+  # MESSAGING DISABLED - NO CONFIGURATION NEEDED
+  #---------------------------------------------------------------------------
+  # Messaging is disabled, continue without configuration
+  # Using ':' (no-op) to maintain script structure
+  :
+fi
+
+#-----------------------------------------------------------------------------
+# FINALIZATION
+#-----------------------------------------------------------------------------
+# Mark this initialization script as completed in container state tracking
+liftoff
+
+# Re-enable output for subsequent initialization scripts
+output_on
