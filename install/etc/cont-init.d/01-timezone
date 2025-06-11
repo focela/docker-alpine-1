@@ -1,0 +1,34 @@
+#!/command/with-contenv bash
+#-----------------------------------------------------------------------------
+# Timezone Configuration Script
+#
+# Purpose: Configures system timezone based on TIMEZONE environment variable
+# Context: Runs early in s6-overlay initialization sequence (01-timezone)
+# Note: Sets system timezone if TIMEZONE variable is provided, otherwise
+#       leaves system default timezone unchanged
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# CONFIGURATION - FRAMEWORK SETUP
+#-----------------------------------------------------------------------------
+# Load the core container framework library for utility functions
+source /assets/functions/00-container
+
+# Configure logging context and disable debug output during execution
+output_off
+PROCESS_NAME="timezone"
+
+#-----------------------------------------------------------------------------
+# MAIN EXECUTION - TIMEZONE CONFIGURATION
+#-----------------------------------------------------------------------------
+# Apply timezone configuration if TIMEZONE environment variable is set
+# Uses safe variable expansion to avoid errors if TIMEZONE is unset
+if [ -n "${TIMEZONE}" ]; then
+  set_timezone "${TIMEZONE}"
+fi
+
+# Mark this initialization script as completed in container state tracking
+liftoff
+
+# Re-enable output for subsequent initialization scripts
+output_on
