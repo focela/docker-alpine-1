@@ -1,0 +1,22 @@
+#!/command/with-contenv bash
+#-----------------------------------------------------------------------------
+# Scheduling Configuration Defaults
+#
+# Purpose: Sets default environment variables for container task scheduling
+# Context: Runs in s6-overlay environment with with-contenv wrapper
+# Note: Part of numbered defaults series (04-scheduling)
+#-----------------------------------------------------------------------------
+
+
+
+#-----------------------------------------------------------------------------
+# SCHEDULING LOG CONFIGURATION
+#-----------------------------------------------------------------------------
+# Log output destination type (FILE, CONSOLE, SYSLOG)
+SCHEDULING_LOG_TYPE=${SCHEDULING_LOG_TYPE:-"FILE"}
+
+# Directory path for scheduling log files
+SCHEDULING_LOG_LOCATION=${SCHEDULING_LOG_LOCATION:-"/var/log/cron/"}
+
+# Log level (8=debug, 7=info, 6=notice, 4=warning, 3=error, 2=critical)
+SCHEDULING_LOG_LEVEL=${SCHEDULING_LOG_LEVEL:-"8"}
