@@ -1,0 +1,35 @@
+#!/command/with-contenv bash
+#-----------------------------------------------------------------------------
+# Messaging Configuration Defaults
+#
+# Purpose: Sets default environment variables for SMTP messaging configuration
+# Context: Runs in s6-overlay environment with with-contenv wrapper
+# Note: Part of numbered defaults series (06-messaging)
+#-----------------------------------------------------------------------------
+
+
+
+#-----------------------------------------------------------------------------
+# SMTP CONNECTION SETTINGS
+#-----------------------------------------------------------------------------
+# SMTP server connection details
+SMTP_HOST=${SMTP_HOST:-"postfix-relay"}
+SMTP_PORT=${SMTP_PORT:-"25"}
+
+# Domain configuration
+SMTP_DOMAIN=${SMTP_DOMAIN:-"${IMAGE_NAME}"}
+SMTP_MAILDOMAIN=${SMTP_MAILDOMAIN:-"local"}
+
+#-----------------------------------------------------------------------------
+# SMTP SECURITY SETTINGS
+#-----------------------------------------------------------------------------
+# TLS/SSL encryption settings
+SMTP_TLS=${SMTP_TLS:-"FALSE"}
+SMTP_STARTTLS=${SMTP_STARTTLS:-"FALSE"}
+SMTP_TLSCERTCHECK=${SMTP_TLSCERTCHECK:-"FALSE"}
+
+#-----------------------------------------------------------------------------
+# SMTP BEHAVIOR SETTINGS
+#-----------------------------------------------------------------------------
+# Automatic sender address configuration
+SMTP_AUTO_FROM=${SMTP_AUTO_FROM:-"FALSE"}
