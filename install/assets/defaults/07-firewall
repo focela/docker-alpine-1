@@ -1,0 +1,69 @@
+#!/command/with-contenv bash
+#-----------------------------------------------------------------------------
+# Firewall Configuration Defaults
+#
+# Purpose: Sets default environment variables for iptables and fail2ban security
+# Context: Runs in s6-overlay environment with with-contenv wrapper
+# Note: Part of numbered defaults series (07-firewall)
+#-----------------------------------------------------------------------------
+
+
+
+#-----------------------------------------------------------------------------
+# IPTABLES CONFIGURATION
+#-----------------------------------------------------------------------------
+# Firewall rules location and file
+IPTABLES_RULES_PATH=${IPTABLES_RULES_PATH:-"/assets/iptables/"}
+IPTABLES_RULES_FILE=${IPTABLES_RULES_FILE:-"iptables.rules"}
+
+#-----------------------------------------------------------------------------
+# FAIL2BAN CORE CONFIGURATION
+#-----------------------------------------------------------------------------
+# Backend detection and configuration path
+FAIL2BAN_BACKEND=${FAIL2BAN_BACKEND:-"AUTO"}
+FAIL2BAN_CONFIG_PATH=${FAIL2BAN_CONFIG_PATH:-"/etc/fail2ban/"}
+
+# Startup behavior
+FAIL2BAN_STARTUP_DELAY=${FAIL2BAN_STARTUP_DELAY:-"15"}
+
+#-----------------------------------------------------------------------------
+# FAIL2BAN DATABASE SETTINGS
+#-----------------------------------------------------------------------------
+# Database storage configuration
+FAIL2BAN_DB_TYPE=${FAIL2BAN_DB_TYPE:-"MEMORY"}
+FAIL2BAN_DB_PATH=${FAIL2BAN_DB_PATH:-"/data/fail2ban/"}
+FAIL2BAN_DB_FILE=${FAIL2BAN_DB_FILE:-"fail2ban.sqlite3"}
+
+# Database maintenance (86400 seconds = 24 hours)
+FAIL2BAN_DB_PURGE_AGE=${FAIL2BAN_DB_PURGE_AGE:-"86400"}
+
+#-----------------------------------------------------------------------------
+# FAIL2BAN LOGGING CONFIGURATION
+#-----------------------------------------------------------------------------
+# Log output settings
+FAIL2BAN_LOG_TYPE=${FAIL2BAN_LOG_TYPE:-"FILE"}
+FAIL2BAN_LOG_PATH=${FAIL2BAN_LOG_PATH:-"/var/log/fail2ban/"}
+FAIL2BAN_LOG_FILE=${FAIL2BAN_LOG_FILE:-"fail2ban.log"}
+FAIL2BAN_LOG_LEVEL=${FAIL2BAN_LOG_LEVEL:-"INFO"}
+
+#-----------------------------------------------------------------------------
+# FAIL2BAN PROTECTION SETTINGS
+#-----------------------------------------------------------------------------
+# Ban timing configuration (m=minutes)
+FAIL2BAN_TIME_BAN=${FAIL2BAN_TIME_BAN:-"10m"}
+FAIL2BAN_TIME_FIND=${FAIL2BAN_TIME_FIND:-"10m"}
+
+# Retry threshold before ban
+FAIL2BAN_MAX_RETRY=${FAIL2BAN_MAX_RETRY:-"5"}
+
+#-----------------------------------------------------------------------------
+# FAIL2BAN WHITELIST AND DNS SETTINGS
+#-----------------------------------------------------------------------------
+# IP addresses and ranges to never ban (localhost, private networks)
+FAIL2BAN_IGNORE_IP=${FAIL2BAN_IGNORE_IP:-"127.0.0.1/8 ::1 172.16.0.0/12 192.168.0.0/24"}
+
+# Automatically ignore own IP address
+FAIL2BAN_IGNORE_SELF=${FAIL2BAN_IGNORE_SELF:-"TRUE"}
+
+# DNS resolution handling (warn=log warnings, yes=resolve, no=disable)
+FAIL2BAN_USE_DNS=${FAIL2BAN_USE_DNS:-"warn"}
