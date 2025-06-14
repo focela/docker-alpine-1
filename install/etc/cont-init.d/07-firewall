@@ -1,0 +1,315 @@
+#!/command/with-contenv bash
+#-----------------------------------------------------------------------------
+# Firewall Configuration Script
+#
+# Purpose: Configure firewall and intrusion prevention for container environments
+# Context: Runs in s6-overlay environment as part of container initialization
+# Note: Runs after messaging setup in the cont-init.d sequence (07-firewall)
+#
+# Features:
+# - Firewall rule management via iptables backend
+# - Dynamic rule configuration via FIREWALL_RULE_* environment variables
+# - Fail2ban intrusion prevention system
+# - Multiple database backends for Fail2ban (file, memory, none)
+# - Configurable logging (file, console)
+# - Integration with Zabbix monitoring
+# - Environment variable substitution in jail configurations
+#
+# Environment Variables:
+# Firewall:
+# - CONTAINER_ENABLE_FIREWALL: Enable/disable firewall functionality
+# - CONTAINER_FIREWALL_BACKEND: Firewall backend (iptables)
+# - IPTABLES_RULES_PATH: Path to custom iptables rules file
+# - IPTABLES_RULES_FILE: Filename of custom iptables rules
+# - FIREWALL_RULE_*: Dynamic firewall rules (numbered sequentially)
+#
+# Fail2ban:
+# - CONTAINER_ENABLE_FAIL2BAN: Enable/disable Fail2ban
+# - FAIL2BAN_CONFIG_PATH: Configuration directory path
+# - FAIL2BAN_LOG_PATH: Log directory path
+# - FAIL2BAN_LOG_FILE: Log filename
+# - FAIL2BAN_LOG_TYPE: Logging type (file/console)
+# - FAIL2BAN_DB_TYPE: Database type (file/memory/none)
+# - FAIL2BAN_DB_PATH: Database file path
+# - FAIL2BAN_DB_FILE: Database filename
+# - FAIL2BAN_DB_PURGE_AGE: Database cleanup age
+# - FAIL2BAN_*: Various Fail2ban configuration parameters
+#-----------------------------------------------------------------------------
+
+
+
+#-----------------------------------------------------------------------------
+# INITIALIZATION
+#-----------------------------------------------------------------------------
+# Load container functions library and initialize process
+source /assets/functions/00-container
+output_off
+prepare_service
+# shellcheck disable=SC2034
+PROCESS_NAME="firewall"
+
+# Detect firewall command binary for the configured backend
+firewall_command=$(which "${CONTAINER_FIREWALL_BACKEND,,}")
+
+#-----------------------------------------------------------------------------
+# FIREWALL BACKEND CONFIGURATION
+#-----------------------------------------------------------------------------
+# Configure firewall if enabled
+if var_true "${CONTAINER_ENABLE_FIREWALL}" ; then
+  print_notice "Container configured for firewall with '${CONTAINER_FIREWALL_BACKEND}'"
+
+  case "${CONTAINER_FIREWALL_BACKEND,,}" in
+    "iptables" )
+      #-------------------------------------------------------------------------
+      # IPTABLES BACKEND CONFIGURATION
+      #-------------------------------------------------------------------------
+      # Load custom iptables rules if rules file exists
+      if [ -f "${IPTABLES_RULES_PATH}"/"${IPTABLES_RULES_FILE}" ]; then
+        print_notice "Found custom iptables.rules file"
+        silent iptables-restore "${IPTABLES_RULES_PATH}"/"${IPTABLES_RULES_FILE}"
+      fi
+    ;;
+
+    *)
+      # Handle unknown firewall backends
+      print_error "Unknown firewall backend"
+      exit 1
+    ;;
+  esac
+
+  #---------------------------------------------------------------------------
+  # DYNAMIC FIREWALL RULE PROCESSING
+  #---------------------------------------------------------------------------
+  # Process FIREWALL_RULE_* environment variables for dynamic rule configuration
+  set -o posix
+  set -f
+
+  # Check if any FIREWALL_RULE environment variables exist
+  if printenv | grep -q "^FIREWALL_RULE" ; then
+    print_debug "Found existence of FIREWALL_RULE environment variables"
+
+    # Extract all FIREWALL_RULE_* variables with numeric suffixes
+    # Format: FIREWALL_RULE_01="-A INPUT -p tcp --dport 22 -j ACCEPT"
+    firewallenv=$(mktemp)
+    printenv | sort | grep '^FIREWALL_RULE_[0-9][0-9]*' | sed "s|FIREWALL_RULE_||g" > ${firewallenv}
+    cat ${firewallenv}
+
+    # Process each firewall rule in numerical order
+    while IFS= read -r firewall_entry; do
+      rule_number="$(echo ${firewall_entry} | cut -d = -f1 )"
+      rule_value="$(echo ${firewall_entry} | cut -d = -f2 )"
+
+      print_debug "Adding Rule Number: ${rule_number} with to be parsed by ${CONTAINER_FIREWALL_BACKEND}"
+
+      # Execute the firewall rule using the detected firewall command
+      silent "${firewall_command}" ${rule_value}
+    done < "${firewallenv}"
+
+    # Cleanup temporary files and variables
+    rm -rf "${firewallenv}"
+    set +f
+    unset rule_number rule_value
+    unset "${!FIREWALL_RULE_RULE_@}"
+  fi
+
+  #---------------------------------------------------------------------------
+  # FAIL2BAN CONFIGURATION
+  #---------------------------------------------------------------------------
+  # Configure Fail2ban intrusion prevention if enabled
+  if var_true "${CONTAINER_ENABLE_FAIL2BAN}" ; then
+    print_notice "Container configured to block hosts via 'fail2ban'"
+
+    #-------------------------------------------------------------------------
+    # FAIL2BAN LOGGING SETUP
+    #-------------------------------------------------------------------------
+    print_debug "Fail2ban: Configure Logging"
+    mkdir -p "${FAIL2BAN_LOG_PATH}"
+    touch "${FAIL2BAN_LOG_PATH}"/"${FAIL2BAN_LOG_FILE}"
+
+    #-------------------------------------------------------------------------
+    # FAIL2BAN FILESYSTEM CONFIGURATION
+    #-------------------------------------------------------------------------
+    print_debug "Fail2ban: Configuring Filesystem"
+
+    # If config path is not default, copy default config and create symlink
+    if [ "${FAIL2BAN_CONFIG_PATH}" != "/etc/fail2ban/" ]; then
+      echo "not /etc/fail2ban"
+      print_debug "Fail2ban: Creating Config Dir"
+      mkdir -p "${FAIL2BAN_CONFIG_PATH}"
+      silent cp -R /etc/fail2ban/* "${FAIL2BAN_CONFIG_PATH}"
+
+      print_debug "Fail2ban: Linking Config to Persistent Storage"
+      rm -rf /etc/fail2ban
+      ln -sf "${FAIL2BAN_CONFIG_PATH}" /etc/fail2ban
+    fi
+
+    # Ensure required directories exist
+    mkdir -p /etc/fail2ban/filter.d
+    mkdir -p /etc/fail2ban/jail.d
+
+    #-------------------------------------------------------------------------
+    # FAIL2BAN DATABASE CONFIGURATION
+    #-------------------------------------------------------------------------
+    print_debug "Fail2ban: Creating Data Dir"
+
+    # Configure database backend based on type
+    case "${FAIL2BAN_DB_TYPE,,}" in
+      file )
+        # File-based database: Store ban data in persistent file
+        fail2ban_db="${FAIL2BAN_DB_PATH}/${FAIL2BAN_DB_FILE}"
+        mkdir -p "${FAIL2BAN_DB_PATH}"
+      ;;
+      memory )
+        # Memory-based database: Store ban data in RAM (lost on restart)
+        fail2ban_db=":memory:"
+      ;;
+      none )
+        # No database: Disable ban persistence
+        fail2ban_db="None"
+      ;;
+    esac
+
+    #-------------------------------------------------------------------------
+    # FAIL2BAN LOGGING CONFIGURATION
+    #-------------------------------------------------------------------------
+    # Configure logging output based on type
+    case "${FAIL2BAN_LOG_TYPE,,}" in
+      file )
+        print_debug "Fail2ban: Creating Log Directory"
+        mkdir -p "${FAIL2BAN_LOG_PATH}"
+        touch "${FAIL2BAN_LOG_PATH}"/"${FAIL2BAN_LOG_FILE}"
+        # Setup log rotation for Fail2ban logs (no compression)
+        create_logrotate fail2ban "${FAIL2BAN_LOG_PATH}"/"${FAIL2BAN_LOG_FILE}" none
+      ;;
+      console )
+        # Console logging: Output to stdout instead of file
+        FAIL2BAN_LOG_FILE="STDOUT"
+      ;;
+    esac
+
+    #-------------------------------------------------------------------------
+    # FAIL2BAN JAIL CONFIGURATION
+    #-------------------------------------------------------------------------
+    print_debug "Fail2Ban: Creating Default Jail Configuration"
+
+    # Generate comprehensive jail.conf with all default settings
+    cat <<EOF > "${FAIL2BAN_CONFIG_PATH}"/jail.conf
+## Custom Generated Fail2ban jail.conf Configuration! Do not edit, instead set ENV Vars
+## Last Generated on $(TZ=${TIMEZONE} date +'%Y-%m-%d %H:%M:%S %Z')
+
+[DEFAULT]
+ignorself = ${FAIL2BAN_IGNORE_SELF}
+ignoreip = ${FAIL2BAN_IGNORE_IP}
+ignorecommand =
+bantime  = ${FAIL2BAN_TIME_BAN}
+findtime  = ${FAIL2BAN_TIME_FIND}
+maxretry = ${FAIL2BAN_MAX_RETRY}
+backend = ${FAIL2BAN_BACKEND}
+
+# "usedns" specifies if jails should trust hostnames in logs,
+#   warn when DNS lookups are performed, or ignore all hostnames in logs
+#
+# yes:   if a hostname is encountered, a DNS lookup will be performed.
+# warn:  if a hostname is encountered, a DNS lookup will be performed,
+#        but it will be logged as a warning.
+# no:    if a hostname is encountered, will not be used for banning,
+#        but it will be logged as info.
+# raw:   use raw value (no hostname), allow use it for no-host filters/actions (example user)
+usedns = ${FAIL2BAN_USE_DNS}
+
+logencoding = auto
+enabled = false
+mode = normal
+filter = %(__name__)s[mode=%(mode)s]
+destemail = root@localhost
+sender = root@<fq-hostname>
+mta = sendmail
+protocol = tcp
+chain = <known/chain>
+port = 0:65535
+fail2ban_agent = Fail2Ban/%(fail2ban_version)s
+banaction = iptables-multiport
+banaction_allports = iptables-allports
+action_ = %(banaction)s[name=%(__name__)s, bantime="%(bantime)s", port="%(port)s", protocol="%(protocol)s", chain="%(chain)s"]
+action_mw = %(banaction)s[name=%(__name__)s, bantime="%(bantime)s", port="%(port)s", protocol="%(protocol)s", chain="%(chain)s"]
+            %(mta)s-whois[name=%(__name__)s, sender="%(sender)s", dest="%(destemail)s", protocol="%(protocol)s", chain="%(chain)s"]
+action_mwl = %(banaction)s[name=%(__name__)s, bantime="%(bantime)s", port="%(port)s", protocol="%(protocol)s", chain="%(chain)s"]
+             %(mta)s-whois-lines[name=%(__name__)s, sender="%(sender)s", dest="%(destemail)s", logpath=%(logpath)s, chain="%(chain)s"]
+action_xarf = %(banaction)s[name=%(__name__)s, bantime="%(bantime)s", port="%(port)s", protocol="%(protocol)s", chain="%(chain)s"]
+             xarf-login-attack[service=%(__name__)s, sender="%(sender)s", logpath=%(logpath)s, port="%(port)s"]
+action_cf_mwl = cloudflare[cfuser="%(cfemail)s", cftoken="%(cfapikey)s"]
+                %(mta)s-whois-lines[name=%(__name__)s, sender="%(sender)s", dest="%(destemail)s", logpath=%(logpath)s, chain="%(chain)s"]
+action_blocklist_de  = blocklist_de[email="%(sender)s", service=%(filter)s, apikey="%(blocklist_de_apikey)s", agent="%(fail2ban_agent)s"]
+action_badips = badips.py[category="%(__name__)s", banaction="%(banaction)s", agent="%(fail2ban_agent)s"]
+action_badips_report = badips[category="%(__name__)s", agent="%(fail2ban_agent)s"]
+action_abuseipdb = abuseipdb
+action = %(action_)s
+EOF
+
+    #-------------------------------------------------------------------------
+    # FAIL2BAN MAIN CONFIGURATION
+    #-------------------------------------------------------------------------
+    print_debug "Fail2ban: Configuring main config file"
+
+    # Generate main fail2ban.conf with database and logging settings
+    cat <<EOF > "${FAIL2BAN_CONFIG_PATH}"/fail2ban.conf
+## Custom Generated fail2ban.conf Configuration! Do not edit, instead set ENV Vars
+## Last Generated on $(TZ=${TIMEZONE} date +'%Y-%m-%d %H:%M:%S %Z')
+
+[Definition]
+loglevel = ${FAIL2BAN_LOG_LEVEL}
+logtarget = ${FAIL2BAN_LOG_PATH}/${FAIL2BAN_LOG_FILE}
+syslogsocket = auto
+socket = /var/run/fail2ban/fail2ban.sock
+pidfile = /var/run/fail2ban/fail2ban.pid
+dbfile = ${fail2ban_db}
+dbpurgeage = ${FAIL2BAN_DB_PURGE_AGE}
+EOF
+
+    #-------------------------------------------------------------------------
+    # FAIL2BAN JAIL CUSTOMIZATION
+    #-------------------------------------------------------------------------
+    # Process custom jail configurations with environment variable substitution
+    if [ -d "${FAIL2BAN_CONFIG_PATH}"/jail.d ] && dir_notempty ; then
+      for fail2ban_file in "${FAIL2BAN_CONFIG_PATH}"/jail.d/*.conf ; do
+        if [ ! -d "$fail2ban_file" ] ; then
+          print_debug "Substituting Environment Variables for: '${fail2ban_file}'"
+          fail2ban_tmpfile=$(mktemp)
+          # Preserve file attributes and permissions
+          cp --attributes-only --preserve "${fail2ban_file}" "${fail2ban_tmpfile}"
+          # Substitute environment variables in configuration file
+          cat "$fail2ban_file}" | envsubst > "${fail2ban_tmpfile}" && mv "${fail2ban_tmpfile}" "${fail2ban_file}"
+        fi
+      done
+    fi
+
+    #-------------------------------------------------------------------------
+    # FAIL2BAN MONITORING INTEGRATION
+    #-------------------------------------------------------------------------
+    # Integrate Fail2ban with Zabbix monitoring if both are enabled
+    if var_true "${CONTAINER_ENABLE_MONITORING}" && [ "${CONTAINER_MONITORING_BACKEND,,}" = "zabbix" ]; then
+      cat <<EOF > "${ZABBIX_CONFIG_PATH}"/"${ZABBIX_CONFIG_FILE}".d/focela-fail2ban.conf
+# Zabbix Fail2ban Configuration - Automatically generated based on container startup options
+# Find Companion Zabbix Server Templates at https://github.com/focela/docker-alpine or https://github.com/focela/docker-debian
+# Autoregister=fail2ban
+
+UserParameter=fail2ban.status[*],fail2ban-client status '$1' | grep 'Currently banned:' | grep -E -o '[0-9]+'
+UserParameter=fail2ban.discovery,fail2ban-client status | grep 'Jail list:' | sed -e 's/^.*:\W\+//' -e 's/\(\(\w\|-\)\+\)/{"{#JAIL}":"\1"}/g' -e 's/.*/{"data":[\0]}/'
+UserParameter=fail2ban.version,fail2ban-server -V | head -n1 | awk '{print $2}' | sed "s|v||"
+EOF
+    fi
+  else
+    # Disable firewall service if Fail2ban is not enabled
+    service_stop "$(basename "$0")"
+  fi
+else
+  # Disable firewall service if firewall functionality is not enabled
+  service_stop "$(basename "$0")"
+fi
+
+#-----------------------------------------------------------------------------
+# FINAL INITIALIZATION
+#-----------------------------------------------------------------------------
+# Mark initialization complete and restore output
+liftoff
+output_on
