@@ -1,0 +1,153 @@
+#!/command/with-contenv bash
+#-----------------------------------------------------------------------------
+# Messaging Configuration Script
+#
+# Purpose: Configure SMTP messaging capabilities for container environments
+# Context: Runs in s6-overlay environment as part of container initialization
+# Note: Runs after logging setup in the cont-init.d sequence (06-messaging)
+#
+# Features:
+# - SMTP email routing via msmtp backend
+# - Support for various SMTP providers (Gmail, generic SMTP servers)
+# - TLS/STARTTLS encryption support
+# - Authentication configuration
+# - Automatic sendmail symlink creation for compatibility
+#
+# Environment Variables:
+# - ENABLE_SMTP: Enable/disable SMTP messaging (TRUE/FALSE)
+# - SMTP_HOST: SMTP server hostname/IP
+# - SMTP_PORT: SMTP server port (typically 25, 587, 465)
+# - SMTP_USER: SMTP authentication username
+# - SMTP_PASS: SMTP authentication password
+# - SMTP_DOMAIN: Local domain name for SMTP HELO command
+# - SMTP_FROM: Default sender email address
+# - SMTP_MAILDOMAIN: Mail domain for address rewriting
+# - SMTP_AUTHENTICATION: Authentication method (e.g., plain, login, cram-md5)
+# - SMTP_TLS: Enable TLS encryption (TRUE/FALSE)
+# - SMTP_STARTTLS: Enable STARTTLS upgrade (TRUE/FALSE)
+# - SMTP_TLSCERTCHECK: Enable TLS certificate verification (TRUE/FALSE)
+# - SMTP_ALLOW_FROM_OVERRIDE: Allow From header override (TRUE/FALSE)
+# - ENABLE_SMTP_GMAIL: Enable Gmail-specific configurations
+# - SMTP_AUTO_FROM: Enable automatic From header generation
+#-----------------------------------------------------------------------------
+
+
+
+#-----------------------------------------------------------------------------
+# INITIALIZATION
+#-----------------------------------------------------------------------------
+# Load container functions library and initialize process
+source /assets/functions/00-container
+output_off
+prepare_service single
+# shellcheck disable=SC2034
+PROCESS_NAME="messaging"
+
+#-----------------------------------------------------------------------------
+# CONFIGURATION PARSING
+#-----------------------------------------------------------------------------
+# Parse ENABLE_SMTP environment variable to determine messaging backend
+if var_false "${ENABLE_SMTP}"; then
+  CONTAINER_ENABLE_MESSAGING=FALSE
+fi
+
+if var_true "${ENABLE_SMTP}"; then
+  CONTAINER_ENABLE_MESSAGING=TRUE
+  CONTAINER_MESSAGING_BACKEND=msmtp
+fi
+
+#-----------------------------------------------------------------------------
+# MESSAGING BACKEND PROCESSING
+#-----------------------------------------------------------------------------
+# Configure messaging backend if messaging is enabled
+if var_true "${CONTAINER_ENABLE_MESSAGING}" ; then
+  case "${CONTAINER_MESSAGING_BACKEND,,}" in
+    "msmtp" )
+      #-------------------------------------------------------------------------
+      # MSMTP BACKEND CONFIGURATION
+      #-------------------------------------------------------------------------
+      # Create sendmail compatibility symlink
+      # Many applications expect /usr/sbin/sendmail to exist for email functionality
+      rm -f /usr/sbin/sendmail
+      ln -s /usr/bin/msmtp /usr/sbin/sendmail
+
+      # Convert boolean environment variables to lowercase on/off format for msmtp
+      truefalse_onoff SMTP_TLS lower
+      truefalse_onoff SMTP_STARTTLS lower
+      truefalse_onoff SMTP_TLSCERTCHECK lower
+
+      # Transform file-based variables (supports reading credentials from files)
+      transform_file_var \
+                      SMTP_HOST \
+                      SMTP_PORT \
+                      SMTP_USER \
+                      SMTP_PASS
+
+      #-------------------------------------------------------------------------
+      # MSMTP CONFIGURATION FILE GENERATION
+      #-------------------------------------------------------------------------
+      # Generate msmtp configuration file with all SMTP parameters
+      echo "### Automatically generated on container start. See documentation on how to set!" > /etc/msmtprc
+      {
+        # Basic SMTP server configuration
+        echo "account default "
+        echo "host ${SMTP_HOST}"
+        echo "port ${SMTP_PORT}"
+        echo "domain ${SMTP_DOMAIN}"
+
+        # Optional sender configuration
+        if [ -n "$SMTP_FROM" ]; then
+          echo "from ${SMTP_FROM}"
+        fi
+
+        # Mail domain configuration for address rewriting
+        echo "maildomain ${SMTP_MAILDOMAIN}"
+
+        # Authentication configuration (if credentials provided)
+        if [ -n "$SMTP_AUTHENTICATION" ]; then
+          echo "auth ${SMTP_AUTHENTICATION}"
+        fi
+
+        if [ -n "$SMTP_USER" ]; then
+          echo "user ${SMTP_USER}"
+        fi
+
+        if [ -n "$SMTP_PASS" ]; then
+          echo "password ${SMTP_PASS}"
+        fi
+
+        # TLS/SSL encryption configuration
+        echo "tls ${SMTP_TLS}"
+        echo "tls_starttls ${SMTP_STARTTLS}"
+        echo "tls_certcheck ${SMTP_TLSCERTCHECK}"
+
+        # From header override configuration
+        if [ -n "$SMTP_ALLOW_FROM_OVERRIDE" ]; then
+          echo "allow_from_override ${SMTP_ALLOW_FROM_OVERRIDE}"
+        fi
+
+        # Gmail-specific SMTP configuration
+        # Gmail requires auto_from to be enabled for proper sender handling
+        if var_true "${ENABLE_SMTP_GMAIL}" || var_true "${SMTP_AUTO_FROM}"; then
+          echo "auto_from on"
+        fi
+
+      } >> /etc/msmtprc
+
+      print_notice "Container configured to route mail via SMTP to '${SMTP_HOST}'"
+    ;;
+
+    *)
+      # Handle unknown messaging backends
+      print_error "Unknown messaging backend"
+      exit 1
+    ;;
+  esac
+fi
+
+#-----------------------------------------------------------------------------
+# FINAL INITIALIZATION
+#-----------------------------------------------------------------------------
+# Mark initialization complete and restore output
+liftoff
+output_on
