@@ -1,0 +1,51 @@
+#!/command/with-contenv bash
+#-----------------------------------------------------------------------------
+# Firewall Service Script
+#
+# Purpose: Initialize and run container firewall services (fail2ban)
+# Context: Runs as s6-overlay service for intrusion detection and prevention
+# Note: Includes startup delay to ensure log files are populated before monitoring
+#-----------------------------------------------------------------------------
+
+
+
+#-----------------------------------------------------------------------------
+# INITIALIZATION
+#-----------------------------------------------------------------------------
+# Load container functions and initialize firewall service
+source /assets/functions/00-container
+output_off
+PROCESS_NAME="firewall"
+prepare_service defaults single
+check_container_initialized
+check_service_initialized init
+
+liftoff
+
+#-----------------------------------------------------------------------------
+# STARTUP DELAY
+#-----------------------------------------------------------------------------
+# Wait for log files to be populated before starting fail2ban monitoring
+# This prevents fail2ban from failing to start due to missing or empty log files
+# that it needs to monitor for intrusion detection patterns
+print_debug "Sleeping for '${FAIL2BAN_STARTUP_DELAY}' seconds before starting Fail2ban to make sure logs are populated"
+sleep ${FAIL2BAN_STARTUP_DELAY}
+
+#-----------------------------------------------------------------------------
+# FAIL2BAN SERVICE STARTUP
+#-----------------------------------------------------------------------------
+# Start fail2ban-server with appropriate output handling based on log configuration
+print_start "Starting Fail2ban"
+
+# Handle different logging modes for fail2ban output
+if [ "${FAIL2BAN_LOG_TYPE,,}" = "file" ] ; then
+  # File logging mode: use silent exec to prevent duplicate log entries
+  # fail2ban will write to its own log files, so we suppress stdout/stderr
+  output_on
+  silent exec fail2ban-server -f
+else
+  # Console/syslog logging mode: allow fail2ban output to be captured by s6
+  # This enables integration with container logging infrastructure
+  output_on
+  exec fail2ban-server -f
+fi
