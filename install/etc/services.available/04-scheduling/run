@@ -1,0 +1,116 @@
+#!/command/with-contenv bash
+#-----------------------------------------------------------------------------
+# Scheduling Service Script
+#
+# Purpose: Initialize and run container scheduling services (cron, logrotate)
+# Context: Runs as s6-overlay service for task scheduling and log management
+# Note: Supports both Alpine and Debian/Ubuntu cron implementations
+#-----------------------------------------------------------------------------
+
+
+
+#-----------------------------------------------------------------------------
+# INITIALIZATION
+#-----------------------------------------------------------------------------
+# Load container functions and initialize scheduling service
+source /assets/functions/00-container
+PROCESS_NAME="scheduling"
+output_off
+prepare_service
+check_container_initialized
+check_service_initialized init
+
+#-----------------------------------------------------------------------------
+# LOGROTATE CONFIGURATION
+#-----------------------------------------------------------------------------
+# Configure log rotation if enabled - this runs before main scheduling
+# to ensure log management is in place before other services start logging
+if var_true "${CONTAINER_ENABLE_LOGROTATE}" ; then
+  print_debug "[logrotate] Setting Logrotate retention days after all services have finished initializing"
+
+  # Create logrotate configuration directory
+  mkdir -p /etc/logrotate.d
+
+  # Copy logrotate configuration templates from assets
+  print_debug "[logrotate] Moving files from /assets/logrotate to /etc/logrotate.d"
+  cp -R /assets/logrotate/* /etc/logrotate.d
+
+  # Configure retention period based on environment variable
+  # Replaces "rotate X" with "rotate ${LOGROTATE_RETAIN_DAYS}" in all config files
+  sed -i "s|rotate .*|rotate ${LOGROTATE_RETAIN_DAYS}|g" /etc/logrotate.d/*
+
+  # Clean up any double slashes in file paths
+  sed -i "s|//|/|g" /etc/logrotate.d/*
+
+  # Set proper ownership and permissions for logrotate configs
+  chown -R root:root /etc/logrotate.d
+  chmod -R 0644 /etc/logrotate.d
+fi
+
+liftoff
+
+#-----------------------------------------------------------------------------
+# SCHEDULING BACKEND SELECTION
+#-----------------------------------------------------------------------------
+# Determine which scheduling backend to use based on configuration
+case "${CONTAINER_SCHEDULING_BACKEND}" in
+  "cron" )
+    #-------------------------------------------------------------------------
+    # CRON LOG CONFIGURATION
+    #-------------------------------------------------------------------------
+    # Set up cron logging parameters based on log type preference
+    if [ "${SCHEDULING_LOG_TYPE,,}" = "file" ]; then
+      cron_log_file="-L ${SCHEDULING_LOG_LOCATION}/cron.log"
+    fi
+
+    #-------------------------------------------------------------------------
+    # CRONTAB BUILDING AND INSTALLATION
+    #-------------------------------------------------------------------------
+    # Build consolidated crontab from all scheduling configuration files
+    print_debug "Parsing all files from ${CONTAINER_SCHEDULING_LOCATION}"
+
+    # Create unique temporary crontab file using current timestamp
+    temp_crontab=$(date +%s)
+
+    # Initialize crontab with empty MAILTO to prevent mail notifications
+    echo 'MAILTO=""' > $temp_crontab
+
+    # Handle empty scheduling directory by creating placeholder file
+    # This prevents errors when trying to parse non-existent files
+    if dir_empty "${CONTAINER_SCHEDULING_LOCATION}" ; then
+      echo "# Intentionally empty" > "${CONTAINER_SCHEDULING_LOCATION}"/empty
+    fi
+
+    # Process all scheduling files: remove comments (#) and empty lines
+    # sed removes lines starting with # (comments)
+    # awk 'NF' removes lines with no fields (empty lines)
+    sed "/#/d" "${CONTAINER_SCHEDULING_LOCATION}"/* | awk 'NF' >> /tmp/.container/cron/${temp_crontab}
+
+    # Clear existing crontab and install new one
+    silent crontab -r
+    crontab /tmp/.container/cron/${temp_crontab}
+
+    #-------------------------------------------------------------------------
+    # OS-SPECIFIC CRON EXECUTION
+    #-------------------------------------------------------------------------
+    # Start cron daemon with OS-appropriate command and parameters
+    print_start "Starting cron"
+
+    # Detect operating system from /etc/os-release
+    os=$(cat /etc/os-release | grep ^ID= | cut -d = -f2)
+
+    case ${os} in
+      "alpine" )
+        # Alpine Linux uses crond with specific parameter format
+        output_on
+        exec /usr/sbin/crond -f -l ${SCHEDULING_LOG_LEVEL} ${cron_log_file}
+      ;;
+      "debian" | "ubuntu" )
+        # Debian/Ubuntu use cron with same parameters as Alpine
+        # Note: Both use crond here, which may need verification for Debian/Ubuntu
+        output_on
+        exec /usr/sbin/crond -f -l ${SCHEDULING_LOG_LEVEL} ${cron_log_file}
+      ;;
+    esac
+  ;;
+esac
