@@ -1,494 +1,280 @@
-# Contributing to Docker Alpine
-
-Thank you for your interest in contributing to the Docker Alpine project! We welcome contributions from developers of all skill levels and backgrounds. This project focuses on creating robust, secure, and lightweight Alpine Linux-based Docker images with s6-overlay service management.
+# Security Policy
 
 ## Table of Contents
 
-- [Code of Conduct](#code-of-conduct)
-- [Getting Started](#getting-started)
-- [Development Workflow](#development-workflow)
-- [Code Standards](#code-standards)
-- [Pull Request Process](#pull-request-process)
-- [Issue Guidelines](#issue-guidelines)
-- [Testing Requirements](#testing-requirements)
-- [Documentation](#documentation)
-- [Community](#community)
-- [Getting Help](#getting-help)
+- [Overview](#overview)
+- [Security Features](#security-features)
+- [Supported Versions](#supported-versions)
+- [Vulnerability Reporting](#vulnerability-reporting)
+- [Security Best Practices](#security-best-practices)
+- [Incident Response](#incident-response)
+- [Compliance & Standards](#compliance--standards)
+- [Additional Resources](#additional-resources)
 
 ---
 
-## Code of Conduct
+## Overview
 
-By participating in this project, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md). Please read it to understand the standards we expect from all community members.
+This document outlines our comprehensive security policies, vulnerability reporting procedures, and recommended security best practices for users of the Docker Alpine project. Our commitment to security encompasses both the container images we provide and the guidance we offer to ensure secure deployments.
 
----
-
-## Getting Started
-
-### Prerequisites
-
-Before contributing, ensure you have the following installed:
-
-- **Git** (version 2.0 or higher)
-- **Docker** (version 20.0 or higher)
-- **Docker Compose** (version 2.0 or higher)
-- **Alpine Linux knowledge** (basic package management, ash/bash scripting)
-- **s6-overlay familiarity** (service management and lifecycle)
-- **Text Editor/IDE** with Dockerfile, Bash, and Markdown syntax highlighting
-- **Make** (for build automation)
-
-### Alpine-Specific Knowledge
-
-Familiarity with these Alpine Linux concepts will help:
-
-- **apk package manager** and package selection
-- **musl libc** vs glibc differences
-- **busybox utilities** and POSIX compliance
-- **s6-overlay** service definitions and lifecycle management
-- **Alpine security model** and minimal attack surface principles
-
-### Initial Setup
-
-1. **Fork the repository** on GitHub
-2. **Clone your fork** locally:
-   ```bash
-   git clone https://github.com/your-username/docker-alpine.git
-   cd docker-alpine
-   ```
-3. **Add upstream remote**:
-   ```bash
-   git remote add upstream https://github.com/focela/docker-alpine.git
-   ```
-4. **Build test images**:
-   ```bash
-   make build
-   ```
-5. **Run tests**:
-   ```bash
-   make test
-   ```
+**Security is a shared responsibility.** While we work diligently to provide secure base images, proper configuration and deployment practices are essential for maintaining security in production environments.
 
 ---
 
-## Development Workflow
+## Security Features
 
-### Branching Strategy
+Our Docker Alpine images are built with security as a foundational principle:
 
-We use a **feature branch workflow**:
+### **Alpine Linux Security Foundation**
+- **Minimal attack surface** with reduced package footprint
+- **musl libc** providing memory safety improvements over glibc
+- **Position Independent Executables (PIE)** and stack-smashing protection
+- **Regular security updates** from the Alpine Security Team
 
-- `main` - Production-ready code
-- `develop` - Integration branch for new features
-- `feature/*` - Individual feature development
-- `bugfix/*` - Bug fixes
-- `hotfix/*` - Critical production fixes
+### **Container Hardening**
+- **Non-root user execution** where applicable
+- **Minimal package installation** with unnecessary components removed
+- **Secure defaults** for all service configurations
+- **Multi-stage builds** to eliminate build dependencies from final images
 
-### Creating a Feature Branch
+### **s6-overlay Integration**
+- **Proper process supervision** preventing zombie processes
+- **Graceful shutdown handling** for clean container termination
+- **Service dependency management** ensuring secure startup order
+- **Signal handling** for proper container lifecycle management
 
+---
+
+## Supported Versions
+
+We maintain a focused support policy to ensure optimal security coverage:
+
+| Version | Support Status | Security Updates | End of Life |
+|---------|----------------|------------------|-------------|
+| `latest` (main branch) | ✅ **Fully Supported** | Regular updates | N/A |
+| `3.19-*` | ✅ **Supported** | Security patches | TBD |
+| `3.18-*` | ⚠️ **Limited Support** | Critical fixes only | 2024-12-31 |
+| `< 3.18` | ❌ **Unsupported** | No updates | End of life |
+
+> **Important:** Always use the latest supported version to ensure you have all security patches and updates. Unsupported versions may contain known vulnerabilities.
+
+### Version Support Policy
+
+- **Latest builds** receive immediate security updates
+- **Current Alpine version** receives regular security patches
+- **Previous Alpine version** receives critical security fixes for 6 months
+- **Older versions** are immediately deprecated when new Alpine versions are released
+
+---
+
+## Vulnerability Reporting
+
+We take security vulnerabilities seriously and appreciate responsible disclosure from the security community.
+
+### **Reporting Process**
+
+If you discover a security vulnerability, please follow these steps:
+
+1. **DO NOT disclose publicly** (no GitHub issues, forums, social media, etc.)
+2. **Send a detailed report** to: [security@focela.com](mailto:security@focela.com)
+3. **Include the following information:**
+   - **Vulnerability description** and classification (if known)
+   - **Affected versions** and components
+   - **Step-by-step reproduction** instructions
+   - **Proof of concept** (if applicable)
+   - **Potential impact** assessment
+   - **Suggested mitigation** or fix (if available)
+   - **Your contact information** for follow-up questions
+
+### **Response Timeline**
+
+Our security team follows this process:
+
+| Phase | Timeline | Action |
+|-------|----------|---------|
+| **Acknowledgment** | Within 24 hours | Confirm receipt and assign tracking ID |
+| **Initial Assessment** | Within 72 hours | Evaluate severity and impact |
+| **Investigation** | 1-2 weeks | Thorough analysis and reproduction |
+| **Resolution** | Varies by severity | Develop and test fix |
+| **Disclosure** | After fix release | Coordinate responsible disclosure |
+
+### **Recognition**
+
+We believe in recognizing security researchers who help improve our project:
+
+- **Security advisories** will credit reporters (unless anonymity is requested)
+- **Hall of fame** listing for significant contributions
+- **Coordination** with CVE assignment when applicable
+
+---
+
+## Security Best Practices
+
+### **Deployment Security**
+
+#### **Image Management**
 ```bash
-# Update your local main branch
-git checkout main
-git pull upstream main
+# Always pull the latest version
+docker pull focela/alpine:latest
 
-# Create and checkout a new feature branch
-git checkout -b feature/your-feature-name
+# Verify image integrity (when signatures are available)
+docker trust inspect focela/alpine:latest
 
-# Push the branch to your fork
-git push -u origin feature/your-feature-name
+# Use specific tags for production consistency
+docker pull focela/alpine:3.19-monitoring
 ```
 
-### Commit Message Guidelines
-
-We follow [Conventional Commits](https://www.conventionalcommits.org/) specification:
-
+#### **Container Configuration**
+```yaml
+# docker-compose.yml security recommendations
+version: '3.8'
+services:
+  app:
+    image: focela/alpine:latest
+    # Run with restricted privileges
+    user: "1000:1000"
+    # Limit resources
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    # Mount volumes as read-only when possible
+    volumes:
+      - ./config:/app/config:ro
+    # Limit capabilities
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    # Use security options
+    security_opt:
+      - no-new-privileges:true
 ```
-<type>[optional scope]: <description>
 
-[optional body]
+### **Access Control**
 
-[optional footer(s)]
-```
+#### **Privilege Management**
+- **Principle of least privilege**: Grant minimal necessary permissions
+- **Non-root execution**: Use dedicated service users when possible
+- **Capability dropping**: Remove unnecessary Linux capabilities
+- **Read-only filesystems**: Mount volumes as read-only where applicable
 
-**Types:**
-- `feat` - New features
-- `fix` - Bug fixes
-- `docs` - Documentation changes
-- `style` - Code style changes (formatting, etc.)
-- `refactor` - Code refactoring
-- `test` - Adding or updating tests
-- `chore` - Maintenance tasks
+#### **Network Security**
+- **Port exposure**: Only expose necessary ports
+- **Network segmentation**: Use Docker networks for isolation
+- **TLS encryption**: Enable encryption for all network communications
+- **Firewall rules**: Implement proper ingress/egress controls
 
-**Examples:**
+### **Configuration Security**
+
+#### **Environment Variables**
 ```bash
-feat(services): add monitoring service definition
-fix(alpine): resolve package dependency conflict  
-feat(s6): add logging service with fluent-bit support
-fix(dockerfile): optimize layer caching for faster builds
-docs(services): update firewall service configuration guide
+# Use secrets management for sensitive data
+docker secret create db_password password.txt
+docker service create --secret db_password myapp
+
+# Avoid passing secrets via environment variables
+# BAD: -e DATABASE_PASSWORD=secret123
+# GOOD: Use Docker secrets or external secret management
 ```
 
-### Daily Development
-
+#### **Volume Security**
 ```bash
-# Keep your branch updated
-git fetch upstream
-git rebase upstream/main
+# Mount volumes with appropriate permissions
+docker run -v /host/data:/app/data:ro,Z focela/alpine:latest
 
-# Make your changes and commit
-git add .
-git commit -m "feat(scope): description of changes"
-
-# Push to your fork
-git push origin feature/your-feature-name
+# Use tmpfs for sensitive temporary data
+docker run --tmpfs /tmp:rw,noexec,nosuid,size=100m focela/alpine:latest
 ```
 
----
+### **Monitoring & Logging**
 
-## Code Standards
+#### **Security Monitoring**
+- **Container runtime security**: Monitor for suspicious activities
+- **Log aggregation**: Centralize logs for security analysis
+- **Vulnerability scanning**: Regularly scan images and containers
+- **Compliance checking**: Automated security policy enforcement
 
-## Code Standards
-
-### Dockerfile Best Practices
-
-- **Base image**: Always use official Alpine Linux images (`alpine:latest` or specific versions)
-- **Layer optimization**: Combine RUN commands to minimize layers
-- **Package cleanup**: Always clean apk cache with `rm -rf /var/cache/apk/*`
-- **Security**: Run as non-root user when possible
-- **Size optimization**: Use multi-stage builds for complex applications
-- **Labels**: Include proper OCI labels for metadata
-
-**Example:**
-```dockerfile
-FROM alpine:3.19
-
-RUN apk add --no-cache \
-      bash \
-      curl \
-      tzdata \
-    && rm -rf /var/cache/apk/*
-
-# s6-overlay installation
-ENV S6_OVERLAY_VERSION=3.1.6.2
-RUN apk add --no-cache --virtual .s6-deps \
-      curl \
-    && curl -L "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz" \
-       | tar -C / -Jxpf - \
-    && apk del .s6-deps
-```
-
-### s6-overlay Service Scripts
-
-- **Shebang**: Use `#!/command/with-contenv bash` for environment variable access
-- **Indentation**: 2 spaces (no tabs)
-- **Line length**: Maximum 120 characters
-- **Error handling**: Use `set -euo pipefail` where appropriate, but be cautious with s6-overlay
-- **Variable naming**: Use `snake_case` for variables
-- **Function naming**: Use lowercase with underscores
-- **Service lifecycle**: Follow s6-overlay patterns (`prepare_service`, `liftoff`, etc.)
-- **Comments**: Document service dependencies and timing requirements
-
-**Example:**
-```bash
-#!/command/with-contenv bash
-# Service initialization script for container monitoring
-
-source /assets/functions/00-container
-PROCESS_NAME="monitoring"
-output_off
-prepare_service
-check_container_initialized
-check_service_initialized init
-
-liftoff
-
-print_start "Starting ${PROCESS_NAME} service"
-exec monitoring-daemon --config=/etc/monitoring/config.yml
-```
-
-### Alpine Package Management
-
-- **Minimal packages**: Only install necessary packages
-- **Virtual packages**: Use `--virtual` for build dependencies
-- **Package pinning**: Pin package versions for reproducibility when needed
-- **Security updates**: Regularly update base images and packages
-- **Package selection**: Prefer Alpine native packages over compilation
-
-### Shell Scripting (ash/bash)
-
-- **Indentation**: 2 spaces (no tabs)
-- **Line length**: Maximum 120 characters
-- **Shebang**: Use `#!/bin/bash` or `#!/command/with-contenv bash` for s6-overlay
-- **Error handling**: Always use `set -euo pipefail` where appropriate
-- **Variable naming**: Use `snake_case` for variables
-- **Function naming**: Use lowercase with underscores
-- **Comments**: Document complex logic and business rules
-
-**Example:**
-```bash
-#!/command/with-contenv bash
-# Service initialization script for container monitoring
-
-set -euo pipefail
-
-PROCESS_NAME="monitoring"
-SERVICE_PORT="${MONITORING_PORT:-8080}"
-
-initialize_service() {
-  print_debug "Initializing ${PROCESS_NAME} service on port ${SERVICE_PORT}"
-  # Implementation here
-}
-```
-
-### Markdown Files
-
-- **Headings**: Use ATX-style headers (`# ## ###`)
-- **Line length**: Aim for 80-100 characters for readability
-- **Lists**: Use `-` for unordered lists, `1.` for ordered lists
-- **Code blocks**: Always specify language for syntax highlighting
-- **Links**: Use descriptive text, avoid raw URLs
-
-### Docker & Configuration
-
-- **Indentation**: 2 spaces for YAML, 4 spaces for Dockerfile
-- **Comments**: Document non-obvious configuration choices
-- **Security**: Never include secrets or sensitive data
-- **Efficiency**: Use multi-stage builds and minimal base images
+#### **Recommended Tools**
+- **Trivy**: Vulnerability scanning for images and filesystems
+- **Docker Bench**: Security configuration assessment
+- **Falco**: Runtime security monitoring
+- **OWASP ZAP**: Application security testing
 
 ---
 
-## Pull Request Process
+## Incident Response
 
-### Before Submitting
+### **Security Incident Procedure**
 
-- [ ] **Tests pass**: Run `make test` locally
-- [ ] **Code quality**: Run `make lint` and fix any issues
-- [ ] **Documentation**: Update relevant documentation
-- [ ] **Self-review**: Review your own code for clarity and completeness
-- [ ] **Rebase**: Ensure your branch is up-to-date with main
+If you suspect a security incident involving our images:
 
-### PR Guidelines
+1. **Immediate containment**: Isolate affected systems
+2. **Assessment**: Determine scope and impact
+3. **Notification**: Contact our security team at [security@focela.com](mailto:security@focela.com)
+4. **Documentation**: Preserve evidence and maintain incident logs
+5. **Recovery**: Follow established recovery procedures
+6. **Post-incident**: Conduct thorough analysis and lessons learned
 
-1. **Title**: Use conventional commit format
-2. **Description**: Include:
-    - Summary of changes
-    - Motivation and context
-    - Testing instructions
-    - Screenshots (if applicable)
-    - Breaking changes (if any)
+### **Incident Information**
 
-3. **Size**: Keep PRs focused and reasonably sized (< 500 lines when possible)
-4. **Draft**: Use draft PRs for work-in-progress to get early feedback
+When reporting incidents, please provide:
 
-### PR Template
-
-```markdown
-## Summary
-Brief description of what this PR does.
-
-## Type of Change
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Breaking change
-- [ ] Documentation update
-
-## Testing
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] Manual testing completed
-
-## Checklist
-- [ ] Code follows style guidelines
-- [ ] Self-review completed
-- [ ] Documentation updated
-- [ ] No breaking changes (or clearly documented)
-```
-
-### Review Process
-
-1. **Automated checks** must pass (CI/CD pipeline)
-2. **At least one reviewer** approval required
-3. **Address feedback** promptly and respectfully
-4. **Squash commits** before merging (if requested)
+- **Timeline** of events and discovery
+- **Affected systems** and scope of compromise
+- **Indicators of compromise** (IOCs)
+- **Initial impact assessment**
+- **Immediate actions taken**
 
 ---
 
-## Issue Guidelines
+## Compliance & Standards
 
-### Before Creating an Issue
+### **Security Standards**
 
-- **Search existing issues** to avoid duplicates
-- **Check documentation** for answers to common questions
-- **Use latest version** and verify the issue still exists
+Our images and processes align with industry security standards:
 
-### Bug Reports
+- **CIS Docker Benchmark**: Container security configuration
+- **NIST Cybersecurity Framework**: Risk management practices
+- **OWASP Container Security**: Application security principles
+- **Docker Security Best Practices**: Official Docker recommendations
 
-Use the bug report template and include:
+### **Automated Security**
 
-- **Environment details** (OS, Docker version, etc.)
-- **Steps to reproduce** the issue
-- **Expected vs actual behavior**
-- **Error messages** and logs
-- **Minimal reproduction case** if possible
+We implement continuous security practices:
 
-### Feature Requests
-
-Use the feature request template and include:
-
-- **Problem description** you're trying to solve
-- **Proposed solution** with technical details
-- **Alternatives considered**
-- **Additional context** or examples
-
-### Issue Labels
-
-- `bug` - Something isn't working
-- `enhancement` - New feature or improvement
-- `documentation` - Documentation related
-- `good-first-issue` - Good for newcomers
-- `help-wanted` - Extra attention needed
-- `priority-high` - Urgent issues
+- **Static analysis**: Code and configuration scanning
+- **Dependency scanning**: Regular vulnerability assessment
+- **Image scanning**: Multi-layer security analysis
+- **Policy enforcement**: Automated compliance checking
 
 ---
 
-## Testing Requirements
+## Additional Resources
 
-### Running Tests
+### **Documentation**
+- [Alpine Linux Security](https://alpinelinux.org/about/#small-simple-secure)
+- [Docker Security Documentation](https://docs.docker.com/engine/security/)
+- [s6-overlay Security Considerations](https://github.com/just-containers/s6-overlay#security)
+- [Container Security Best Practices](https://kubernetes.io/docs/concepts/security/)
 
-```bash
-# Build and test all images
-make test
+### **Security Tools**
+- [Trivy Scanner](https://github.com/aquasecurity/trivy)
+- [Docker Bench Security](https://github.com/docker/docker-bench-security)
+- [Anchore Engine](https://github.com/anchore/anchore-engine)
+- [Clair Vulnerability Scanner](https://github.com/quay/clair)
 
-# Build specific image variant
-make build VARIANT=monitoring
-
-# Test specific service
-make test-service SERVICE=logging
-
-# Run security scans
-make security-scan
-
-# Test s6-overlay services
-make test-services
-```
-
-### Testing Types
-
-- **Image builds**: Verify Dockerfiles build successfully
-- **Service functionality**: Test s6-overlay service definitions
-- **Package installation**: Verify Alpine packages install correctly
-- **Security scanning**: Scan for vulnerabilities with tools like Trivy
-- **Container runtime**: Test container startup and service orchestration
-- **Resource usage**: Monitor memory and CPU usage for optimization
-
-### Writing Tests
-
-- **Unit tests**: Test individual functions and components
-- **Integration tests**: Test service interactions
-- **Shell script tests**: Use [bats](https://github.com/bats-core/bats-core) framework
-- **Documentation tests**: Verify code examples work
-
-### Test Guidelines
-
-- **Descriptive names**: Test names should describe what they verify
-- **Arrange-Act-Assert**: Follow the AAA pattern
-- **Clean isolation**: Tests should not depend on each other
-- **Mock external dependencies**: Use mocks for external services
+### **External Resources**
+- [CVE Database](https://cve.mitre.org/)
+- [National Vulnerability Database](https://nvd.nist.gov/)
+- [Alpine Security Advisories](https://secdb.alpinelinux.org/)
+- [Docker Security Advisories](https://github.com/docker/docker/security/advisories)
 
 ---
 
-## Documentation
-
-### What to Document
-
-- **New services**: Include s6-overlay service setup and configuration
-- **Alpine packages**: Document new package additions and justifications
-- **Image variants**: Update documentation for new image variants
-- **Configuration options**: Document new environment variables and volumes
-- **Breaking changes**: Provide migration guides for image updates
-
-### Documentation Standards
-
-- **Alpine-specific**: Include Alpine Linux version compatibility
-- **Clear examples**: Provide working Docker run commands and docker-compose snippets
-- **Security notes**: Document any security implications or recommendations
-- **Service dependencies**: Clearly outline service startup order and dependencies
-
-### Building Documentation Locally
-
-```bash
-# Build documentation
-make docs
-
-# Serve documentation locally
-make docs-serve
-
-# Check for broken links
-make docs-check
-```
-
----
-
-## Community
-
-### Communication Channels
-
-- **GitHub Issues**: Bug reports and feature requests
-- **GitHub Discussions**: General questions and community chat
-- **Email**: [security@focela.com](mailto:security@focela.com) for security issues
-
-### Getting Involved
-
-- **New service definitions**: Create s6-overlay services for common applications
-- **Image optimization**: Improve Docker layer efficiency and size reduction
-- **Security hardening**: Enhance Alpine security configurations
-- **Package updates**: Keep Alpine packages current and secure
-- **Documentation**: Improve setup guides and service configuration examples
-- **Testing**: Add comprehensive tests for new image variants
-- **Performance optimization**: Improve container startup times and resource usage
-
-### Alpine-Specific Contributions
-
-- **Service integrations**: Add popular applications as s6-overlay services
-- **Multi-architecture**: Support ARM64 and other architectures
-- **Security scanning**: Implement automated vulnerability scanning
-- **Package curation**: Research and add useful Alpine packages
-- **Performance tuning**: Optimize for container environments
-
-### Recognition
-
-We appreciate all contributions! Contributors will be:
-
-- **Acknowledged** in release notes
-- **Listed** in the CONTRIBUTORS.md file
-- **Invited** to join the maintainers team (for significant contributors)
-
----
-
-## Getting Help
-
-### Resources
-
-- **Documentation**: Check the project documentation first
-- **FAQ**: Common questions and answers
-- **Examples**: Working examples in the `examples/` directory
-- **Discussions**: Community Q&A and support
-
-### Contact Methods
-
-- **General Questions**: Use GitHub Discussions
-- **Bug Reports**: Create a GitHub Issue
-- **Security Issues**: Email [security@focela.com](mailto:security@focela.com)
-- **Private Matters**: Contact maintainers directly
-
-### Response Times
-
-- **Issues**: We aim to respond within 48 hours
-- **Pull Requests**: Initial review within 3-5 business days
-- **Security Issues**: Response within 24 hours
-
----
-
-## Thank You
-
-Thank you for contributing to the Docker Alpine project! Your involvement helps create better, more secure, and more efficient Alpine Linux-based container images for the community. Together, we're building a foundation for lightweight, production-ready containerized applications.
-
-Happy Alpine hacking! 🏔️🐳
+> **Questions or Concerns?**
+>
+> If you have questions about this security policy or need assistance with secure deployments, please contact us at [security@focela.com](mailto:security@focela.com).
+>
+> For general project questions, visit our [contributing guidelines](CONTRIBUTING.md) or open a discussion in our community forums.
