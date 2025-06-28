@@ -119,9 +119,14 @@ jobs:
 
           # Generate registry-specific image names
           echo "dockerhub_repo=${GITHUB_REPOSITORY/docker-/}" >> $GITHUB_ENV
-          dockerhub_images=$(echo "${image_tags}" | sed "s|${GITHUB_REPOSITORY}|docker.io/${GITHUB_REPOSITORY/docker-/}|g")
-          ghcr_images=$(echo "${image_tags}" | sed "s|${GITHUB_REPOSITORY}|ghcr.io/${GITHUB_REPOSITORY}|g")
-          echo "container_images=${dockerhub_images},${ghcr_images}" >> $GITHUB_OUTPUT
+          
+          if [[ -n "${image_tags}" ]]; then
+              dockerhub_images=$(echo "${image_tags}" | sed "s|${GITHUB_REPOSITORY}|docker.io/${GITHUB_REPOSITORY/docker-/}|g")
+              ghcr_images=$(echo "${image_tags}" | sed "s|${GITHUB_REPOSITORY}|ghcr.io/${GITHUB_REPOSITORY}|g")
+              echo "container_images=${dockerhub_images},${ghcr_images}" >> $GITHUB_OUTPUT
+          else
+              echo "container_images=" >> $GITHUB_OUTPUT
+          fi
 
       - name: "🏷️ Inject Build Metadata Labels"
         id: label
@@ -179,7 +184,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "🚀 Build and Push Multi-Architecture Image"
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.prep.outputs.container_images != ''
         uses: docker/build-push-action@v5
         with:
           builder: ${{ steps.buildx.outputs.name }}
